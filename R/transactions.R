@@ -44,11 +44,46 @@ plot_daily_timeseries <- function(dat) {
     theme(axis.text.x = element_text(angle = 90))
 }
 
-checking_balance_timeseries <- read_transactions(CHECKING_FILE) %>%
+#' Increments ss's count in the env counts, adding ss if it does not exist.
+#' Returns nothing interesting.
+add_to_env <- function(ss, counts) {
+  if (!exists(ss, envir = counts, inherits = FALSE)) {
+    counts[[ss]] = 1
+  } else {
+    counts[[ss]] %<>% {. + 1}
+  }
+}
+
+#' Counts all the prefixes of s and puts those counts in the env counts,
+#' inserting any that don't exist.
+#' Returns nothing interesting.
+count_prefixes <- function(s, counts) {
+  for (i in 1:nchar(s)) {
+    add_to_env(substr(s, 1, i), counts)
+  }
+}
+
+#' counts all the prefixes of all lengths in a list of strings.
+#' @param strings an iterable of strings
+#' @return an environment with all the prefixes and their counts
+count_all_prefixes <- function(strings) {
+  counts <- new.env()
+  for (s in strings) {    
+    count_substrings(s, counts)
+  }
+  counts
+}
+
+checking <- read_transactions(CHECKING_FILE)
+credit   <- read_transactions(CREDIT_FILE)
+
+checking_balance_timeseries <- checking %>%
   to_daily() %>%
   plot_daily_timeseries()
 
-credit_balance_timeseries <- read_transactions(CREDIT_FILE) %>%
+credit_balance_timeseries <- credit %>%
   to_daily() %>%
   plot_daily_timeseries()
+
+counts <- count_all_prefixes(checking[["name"]])
 
