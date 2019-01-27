@@ -4,6 +4,7 @@ import::from(dplyr,
              "arrange", "tibble")
 import::from(readr, "read_csv", "col_date", "col_character", "col_double")
 library(ggplot2)
+
 source("paths.R")
 
 #' @param file the path to a csv file with the columns
@@ -80,6 +81,30 @@ count_all_prefixes <- function(strings) {
     arrange(desc(count)) 
 }
 
+collapse_whitespace <- function(s) gsub("[ ]+", " ", s)
+
+#' Strictly speaking, this function removes substrings, not just prefixes.
+remove_prefixes_from_string <- function(string, prefixes) {
+  Reduce(function(s, prefix) gsub(prefix, "", s, ignore.case = TRUE),
+         x = prefixes, init = string) %>%
+    trimws() %>%
+    collapse_whitespace()
+}
+
+#' Removes prefixes (in a file) from the input strings.
+#' @param strings an iterable of strings to remove prefixes from
+#' @param prefix_file a csv with the single column 'prefix', containing
+#' all the substrings slated for removal.
+#' Strictly speaking, this function removes substrings, not just prefixes.
+remove_prefixes_from_strings <- function(strings, prefix_file) {
+  prefixes <-
+    readr::read_csv("../intermediate/prefixes_to_remove.csv",
+                    col_types = list(prefix = col_character())) %$%
+    prefix  
+  sapply(strings, function(s) remove_prefixes_from_string(s, prefixes))
+}
+
+
 checking <- read_transactions(CHECKING_FILE)
 credit   <- read_transactions(CREDIT_FILE)
 
@@ -91,5 +116,12 @@ credit_balance_timeseries <- credit %>%
   to_daily() %>%
   plot_daily_timeseries()
 
+## I looked at the common prefixes to find the prefixes I wanted to remove.
+## Things like "DEBIT PURCHASE -VISA".
 counts <- count_all_prefixes(checking[["name"]])
+readr::write_csv(counts, '../intermediate/prefix_counts.csv')
 
+result <- remove_prefixes_from_strings(checking[["name"]], PREFIXES_TO_REMOVE_FILE)
+
+checking[["name_post_prefix_removal"]] <-
+  remove_prefixes_from_strings(checking[["name"]], PREFIXES_TO_REMOVE_FILE)

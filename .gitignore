@@ -1,1 +1,3 @@
-data/
+*.*
+!R/
+!prefixes_to_remove.csv
