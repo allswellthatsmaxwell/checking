@@ -1,7 +1,7 @@
 import::from(magrittr, "%>%", "%$%", "%<>%")
 import::from(dplyr,
              "mutate", "group_by", "summarize", "rename_all", "rename",
-             "arrange")
+             "arrange", "tibble")
 import::from(readr, "read_csv", "col_date", "col_character", "col_double")
 library(ggplot2)
 source("paths.R")
@@ -65,13 +65,19 @@ count_prefixes <- function(s, counts) {
 
 #' counts all the prefixes of all lengths in a list of strings.
 #' @param strings an iterable of strings
-#' @return an environment with all the prefixes and their counts
+#' @return a dataframe with all the prefixes and their counts.
 count_all_prefixes <- function(strings) {
   counts <- new.env()
   for (s in strings) {    
     count_substrings(s, counts)
   }
-  counts
+
+  prefixes <- ls(counts)
+  prefixes_counts <- prefixes %>%
+    sapply(function(prefix) counts[[prefix]]) %>%
+    as.numeric()
+  tibble(prefix = prefixes, count = prefixes_counts) %>%
+    arrange(desc(count)) 
 }
 
 checking <- read_transactions(CHECKING_FILE)
