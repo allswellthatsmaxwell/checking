@@ -3,6 +3,7 @@ import::from(dplyr,
              "mutate", "group_by", "summarize", "rename_all", "rename",
              "arrange", "tibble")
 import::from(readr, "read_csv", "col_date", "col_character", "col_double")
+import::from("stringr", "str_replace", "coll")
 library(ggplot2)
 
 source("paths.R")
@@ -85,7 +86,7 @@ collapse_whitespace <- function(s) gsub("[ ]+", " ", s)
 
 #' Strictly speaking, this function removes substrings, not just prefixes.
 remove_prefixes_from_string <- function(string, prefixes) {
-  Reduce(function(s, prefix) gsub(prefix, "", s, ignore.case = TRUE),
+  Reduce(function(s, prefix) str_replace(s, coll(prefix), ""),
          x = prefixes, init = string) %>%
     trimws() %>%
     collapse_whitespace()
@@ -98,7 +99,7 @@ remove_prefixes_from_string <- function(string, prefixes) {
 #' Strictly speaking, this function removes substrings, not just prefixes.
 remove_prefixes_from_strings <- function(strings, prefix_file) {
   prefixes <-
-    readr::read_csv("../intermediate/prefixes_to_remove.csv",
+    readr::read_csv(prefix_file,
                     col_types = list(prefix = col_character())) %$%
     prefix  
   sapply(strings, function(s) remove_prefixes_from_string(s, prefixes))
@@ -116,12 +117,15 @@ credit_balance_timeseries <- credit %>%
   to_daily() %>%
   plot_daily_timeseries()
 
+prefix_counts <- count_all_prefixes(checking[["name"]])
+readr::write_csv(prefix_counts, '../intermediate/prefix_counts.csv')
 ## I looked at the common prefixes to find the prefixes I wanted to remove.
-## Things like "DEBIT PURCHASE -VISA".
-counts <- count_all_prefixes(checking[["name"]])
-readr::write_csv(counts, '../intermediate/prefix_counts.csv')
+## Things like "DEBIT PURCHASE -VISA". And put them into PREFIXES_TO_REMOVE_FILE.
 
-result <- remove_prefixes_from_strings(checking[["name"]], PREFIXES_TO_REMOVE_FILE)
-
-checking[["name_post_prefix_removal"]] <-
+checking[["nice_name"]] <-
   remove_prefixes_from_strings(checking[["name"]], PREFIXES_TO_REMOVE_FILE)
+
+counts_per_place <- checking %>%
+  group_by(nice_name) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
